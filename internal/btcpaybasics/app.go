@@ -1,7 +1,6 @@
 package btcpaybasics
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 )
@@ -34,8 +33,4 @@ func (a *App) Run() error {
 	log.Printf("webhook endpoint: POST http://localhost%s/webhook/btcpay", addr)
 
 	return http.ListenAndServe(addr, mux)
-}
-
-func (a *App) address() string {
-	return fmt.Sprintf(":%s", a.config.Port)
 }

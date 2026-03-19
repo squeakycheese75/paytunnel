@@ -156,7 +156,7 @@ func (s *Simulator) sendPayload(name string, payload map[string]any, opts Option
 		if err != nil {
 			return fmt.Errorf("send request: %w", err)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		fmt.Printf(
 			"\n[event] %s\ninvoice_id=%s\ndelivery_id=%s\nattempt=%d/%d\nstatus=%s\n\n",

@@ -59,7 +59,9 @@ func (e *EventLog) ReplayEvent(ctx context.Context, deliveryID string) error {
 	if err != nil {
 		return fmt.Errorf("send replay: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	fmt.Printf("replayed %s -> %s\n", deliveryID, resp.Status)
 	return nil
