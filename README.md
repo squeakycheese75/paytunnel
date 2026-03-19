@@ -1,112 +1,127 @@
 # paytunnel
 
-Simulate Bitcoin / BTCPay webhook events locally.
+A lightweight CLI for simulating and replaying payment webhooks (starting with BTCPay).
 
-Test your payment logic without running BTCPay Server or using real Bitcoin.
+## Why?
+
+Testing payment flows locally is painful:
+
+* Hard to trigger real payment scenarios
+* Difficult to replay webhooks
+* No easy way to simulate retries or edge cases
+
+`paytunnel` helps you:
+
+* Simulate payment webhooks locally
+* Store webhook events
+* Replay events on demand
 
 ---
 
-## 🚀 Quick start
+## Quick start
 
-### 1. Run the example server
+### 1. Build
+
+```bash
+go build -o bin/paytunnel ./cmd/paytunnel
+```
+
+---
+
+### 2. Run example server
 
 ```bash
 go run ./examples/btcpay-basics
 ```
 
-### 2. Simulate a payment
+This starts a local webhook receiver:
 
-```bash
-go run ./cmd/paytunnel simulate invoice.paid
 ```
-
-### 3. Check orders
-
-```bash
-curl http://localhost:8080/orders
+http://localhost:8080/webhook/btcpay
 ```
 
 ---
 
-## ✨ Features
-
-* Simulate BTCPay webhook events
-* Signature verification (HMAC SHA256)
-* Duplicate delivery handling
-* Multiple scenarios:
-
-  * `invoice.paid`
-  * `invoice.expired`
-* Configurable:
-
-  * `--url`
-  * `--secret`
-  * `--duplicate`
-  * `--invoice-id`
-
----
-
-## 📦 Example
+### 3. Simulate a payment
 
 ```bash
-go run ./cmd/paytunnel simulate \
+./bin/paytunnel simulate \
   --url http://localhost:8080/webhook/btcpay \
   --secret my-supersecret-key \
-  --duplicate 2 \
-  --invoice-id inv_123 \
   invoice.paid
 ```
 
 ---
 
-## 🧪 What this does
+### 4. List events
 
-1. Sends a signed BTCPay-style webhook
-2. Your server verifies the signature
-3. Processes the event
-4. Updates application state (orders)
-
----
-
-## 🧠 Why?
-
-Testing payment flows is painful:
-
-* Requires BTCPay setup
-* Hard to simulate edge cases
-* Manual curl + signature generation
-
-**paytunnel** solves this with a simple CLI.
-
----
-
-## 📁 Project structure
-
-```text
-cmd/paytunnel         # CLI entrypoint
-internal/simulator    # webhook simulator
-internal/btcpay       # shared models + signature logic
-examples/btcpay-basics # runnable example server
+```bash
+./bin/paytunnel events list
 ```
 
 ---
 
-## 🔮 Roadmap
+### 5. Replay an event
 
-* [ ] Delay / retry simulation (`--delay`)
-* [ ] More scenarios (underpaid, failed)
-* [ ] CLI install (`go install`)
-* [ ] Webhook inspector
-* [ ] Optional tunneling support
+```bash
+./bin/paytunnel events replay <delivery-id>
+```
 
 ---
 
-## 🤝 Contributing
+## Supported scenarios
 
-PRs welcome. Ideas and feedback encouraged.
+* invoice.paid
+* invoice.expired
+* invoice.underpaid
 
 ---
 
-## ⭐️ Support
+## Features
 
-If you find this useful, consider giving it a star.
+* 🔁 Replay webhooks
+* 🧪 Simulate payment scenarios
+* 💾 Local event storage (SQLite)
+* 🔐 BTCPay-compatible signature verification
+
+---
+
+## Project structure
+
+```
+internal/
+  repository/   # DB access
+  simulator/    # event generation + sending
+  eventlog/     # list + replay
+```
+
+---
+
+## Roadmap
+
+* More payment scenarios (overpaid, late, retries)
+* Webhook retry simulation
+* Out-of-order delivery
+* HTTP tunneling (ngrok-style)
+
+---
+
+## Development
+
+Run example:
+
+```bash
+go run ./examples/btcpay-basics
+```
+
+Simulate:
+
+```bash
+./bin/paytunnel simulate --url http://localhost:8080/webhook/btcpay --secret my-supersecret-key invoice.paid
+```
+
+---
+
+## License
+
+MIT

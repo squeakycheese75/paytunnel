@@ -2,13 +2,14 @@ package simulator
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/squeakycheese75/paytunnel/internal/repository"
+	"github.com/squeakycheese75/paytunnel/internal/signing"
 )
 
 type Options struct {
@@ -19,24 +20,36 @@ type Options struct {
 	Delay     time.Duration
 }
 
-func Simulate(event string, opts Options) error {
+type Repo interface {
+	Create(ctx context.Context, event repository.Event) error
+}
+
+type Simulator struct {
+	repo Repo
+}
+
+func NewSimulator(repo Repo) *Simulator {
+	return &Simulator{repo: repo}
+}
+
+func (s *Simulator) Simulate(event string, opts Options) error {
 	if opts.InvoiceID == "" {
 		opts.InvoiceID = "inv_123"
 	}
 
 	switch event {
 	case "invoice.paid":
-		return sendInvoicePaid(opts)
+		return s.sendInvoicePaid(opts)
 	case "invoice.expired":
-		return sendInvoiceExpired(opts)
+		return s.sendInvoiceExpired(opts)
 	case "invoice.underpaid":
-		return sendInvoiceUnderpaid(opts)
+		return s.sendInvoiceUnderpaid(opts)
 	default:
 		return fmt.Errorf("unknown event: %s", event)
 	}
 }
 
-func sendInvoicePaid(opts Options) error {
+func (s *Simulator) sendInvoicePaid(opts Options) error {
 	payload := map[string]any{
 		"deliveryId":   "d_" + randomID(),
 		"webhookId":    "w_test",
@@ -51,10 +64,10 @@ func sendInvoicePaid(opts Options) error {
 		},
 	}
 
-	return sendPayload("invoice.paid", payload, opts)
+	return s.sendPayload("invoice.paid", payload, opts)
 }
 
-func sendInvoiceExpired(opts Options) error {
+func (s *Simulator) sendInvoiceExpired(opts Options) error {
 	payload := map[string]any{
 		"deliveryId":   "d_" + randomID(),
 		"webhookId":    "w_test",
@@ -69,10 +82,10 @@ func sendInvoiceExpired(opts Options) error {
 		},
 	}
 
-	return sendPayload("invoice.expired", payload, opts)
+	return s.sendPayload("invoice.expired", payload, opts)
 }
 
-func sendInvoiceUnderpaid(opts Options) error {
+func (s *Simulator) sendInvoiceUnderpaid(opts Options) error {
 	payload := map[string]any{
 		"deliveryId":   "d_" + randomID(),
 		"webhookId":    "w_test",
@@ -87,10 +100,10 @@ func sendInvoiceUnderpaid(opts Options) error {
 		},
 	}
 
-	return sendPayload("invoice.underpaid", payload, opts)
+	return s.sendPayload("invoice.underpaid", payload, opts)
 }
 
-func sendPayload(name string, payload map[string]any, opts Options) error {
+func (s *Simulator) sendPayload(name string, payload map[string]any, opts Options) error {
 	if opts.Duplicate < 1 {
 		opts.Duplicate = 1
 	}
@@ -102,19 +115,36 @@ func sendPayload(name string, payload map[string]any, opts Options) error {
 
 	deliveryID, _ := payload["deliveryId"].(string)
 
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal payload: %w", err)
+	}
+
+	if err := s.repo.Create(context.Background(), repository.Event{
+		DeliveryID: deliveryID,
+		EventName:  name,
+		TargetUrl:  opts.URL,
+		BodyJson:   string(body),
+		Secret:     opts.Secret,
+		CreatedAt:  time.Now().UTC(),
+	}); err != nil {
+		return fmt.Errorf("save event: %w", err)
+	}
+
 	for i := 1; i <= opts.Duplicate; i++ {
+		attemptPayload := clonePayload(payload)
 		if i > 1 {
-			payload["isRedelivery"] = true
+			attemptPayload["isRedelivery"] = true
 		}
 
-		body, err := json.Marshal(payload)
+		attemptBody, err := json.Marshal(attemptPayload)
 		if err != nil {
-			return fmt.Errorf("marshal payload: %w", err)
+			return fmt.Errorf("marshal attempt payload: %w", err)
 		}
 
-		sig := sign(body, opts.Secret)
+		sig := signing.BTCPaySignature(attemptBody, opts.Secret)
 
-		req, err := http.NewRequest(http.MethodPost, opts.URL, bytes.NewBuffer(body))
+		req, err := http.NewRequest(http.MethodPost, opts.URL, bytes.NewBuffer(attemptBody))
 		if err != nil {
 			return fmt.Errorf("build request: %w", err)
 		}
@@ -142,10 +172,12 @@ func sendPayload(name string, payload map[string]any, opts Options) error {
 	return nil
 }
 
-func sign(body []byte, secret string) string {
-	mac := hmac.New(sha256.New, []byte(secret))
-	_, _ = mac.Write(body)
-	return hex.EncodeToString(mac.Sum(nil))
+func clonePayload(in map[string]any) map[string]any {
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }
 
 func randomID() string {
