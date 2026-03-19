@@ -103,6 +103,10 @@ func (a *App) btcpayWebhookHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("invoice %q expired", invoice.ID)
 	}
 
+	if invoice.AdditionalStatus == "underpaid" {
+		log.Printf("invoice %q was underpaid", invoice.ID)
+	}
+
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok\n"))
 }

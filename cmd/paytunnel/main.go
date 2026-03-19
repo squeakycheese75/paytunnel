@@ -31,6 +31,7 @@ func runSimulate(args []string) {
 	secret := fs.String("secret", "my-supersecret-key", "BTCPay webhook secret")
 	duplicate := fs.Int("duplicate", 1, "number of times to send the same event")
 	invoiceID := fs.String("invoice-id", "inv_123", "invoice ID to include in the webhook payload")
+	delay := fs.Duration("delay", 0, "delay before sending the webhook, e.g. 2s")
 
 	if err := fs.Parse(args); err != nil {
 		fmt.Println("error:", err)
@@ -55,6 +56,7 @@ func runSimulate(args []string) {
 		Secret:    *secret,
 		Duplicate: *duplicate,
 		InvoiceID: *invoiceID,
+		Delay:     *delay,
 	}
 
 	if err := simulator.Simulate(event, opts); err != nil {
