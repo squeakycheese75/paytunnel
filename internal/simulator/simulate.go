@@ -16,14 +16,21 @@ type Options struct {
 	Secret    string
 	Duplicate int
 	InvoiceID string
+	Delay     time.Duration
 }
 
 func Simulate(event string, opts Options) error {
+	if opts.InvoiceID == "" {
+		opts.InvoiceID = "inv_123"
+	}
+
 	switch event {
 	case "invoice.paid":
 		return sendInvoicePaid(opts)
 	case "invoice.expired":
 		return sendInvoiceExpired(opts)
+	case "invoice.underpaid":
+		return sendInvoiceUnderpaid(opts)
 	default:
 		return fmt.Errorf("unknown event: %s", event)
 	}
@@ -65,13 +72,32 @@ func sendInvoiceExpired(opts Options) error {
 	return sendPayload("invoice.expired", payload, opts)
 }
 
+func sendInvoiceUnderpaid(opts Options) error {
+	payload := map[string]any{
+		"deliveryId":   "d_" + randomID(),
+		"webhookId":    "w_test",
+		"isRedelivery": false,
+		"type":         "InvoicePaymentSettled",
+		"timestamp":    time.Now().Unix(),
+		"storeId":      "store_123",
+		"data": map[string]any{
+			"id":               opts.InvoiceID,
+			"status":           "Settled",
+			"additionalStatus": "underpaid",
+		},
+	}
+
+	return sendPayload("invoice.underpaid", payload, opts)
+}
+
 func sendPayload(name string, payload map[string]any, opts Options) error {
 	if opts.Duplicate < 1 {
 		opts.Duplicate = 1
 	}
 
-	if opts.InvoiceID == "" {
-		opts.InvoiceID = "inv_123"
+	if opts.Delay > 0 {
+		fmt.Printf("waiting %s before sending %s\n", opts.Delay, name)
+		time.Sleep(opts.Delay)
 	}
 
 	deliveryID, _ := payload["deliveryId"].(string)
@@ -103,11 +129,12 @@ func sendPayload(name string, payload map[string]any, opts Options) error {
 		resp.Body.Close()
 
 		fmt.Printf(
-			"send %d/%d %s delivery_id=%s -> status: %s\n",
+			"\n[event] %s\ninvoice_id=%s\ndelivery_id=%s\nattempt=%d/%d\nstatus=%s\n\n",
+			name,
+			opts.InvoiceID,
+			deliveryID,
 			i,
 			opts.Duplicate,
-			name,
-			deliveryID,
 			resp.Status,
 		)
 	}
