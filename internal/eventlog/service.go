@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 
 	dbgen "github.com/squeakycheese75/paytunnel/internal/db"
@@ -63,6 +64,6 @@ func (e *EventLog) ReplayEvent(ctx context.Context, deliveryID string) error {
 		_ = resp.Body.Close()
 	}()
 
-	fmt.Printf("replayed %s -> %s\n", deliveryID, resp.Status)
+	log.Printf("replayed %s -> %s\n", deliveryID, resp.Status)
 	return nil
 }

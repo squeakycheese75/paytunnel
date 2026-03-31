@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -109,7 +110,7 @@ func (s *Simulator) sendPayload(name string, payload map[string]any, opts Option
 	}
 
 	if opts.Delay > 0 {
-		fmt.Printf("waiting %s before sending %s\n", opts.Delay, name)
+		log.Printf("waiting %s before sending %s\n", opts.Delay, name)
 		time.Sleep(opts.Delay)
 	}
 
@@ -158,7 +159,7 @@ func (s *Simulator) sendPayload(name string, payload map[string]any, opts Option
 		}
 		_ = resp.Body.Close()
 
-		fmt.Printf(
+		log.Printf(
 			"\n[event] %s\ninvoice_id=%s\ndelivery_id=%s\nattempt=%d/%d\nstatus=%s\n\n",
 			name,
 			opts.InvoiceID,
